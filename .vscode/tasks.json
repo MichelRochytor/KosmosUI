@@ -2,122 +2,91 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Compilar Recurso",
-      "type": "process",
-      "command": "C:/msys64/mingw64/bin/windres.exe",
+      "label": "1. Compilar Recurso (Linux)",
+      "type": "shell",
+      "command": "/usr/bin/x86_64-w64-mingw32-windres",
       "args": [
         "-I", "${workspaceFolder}/resource",
-        "-I", "C:/msys64/mingw64/include",
         "-i", "${workspaceFolder}/resource/resource.rc",
         "-o", "${workspaceFolder}/output/resource.o",
         "-O", "coff",
         "-F", "pe-x86-64"
       ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PATH": "C:/msys64/mingw64/bin;${env:PATH}"
-        }
-      },
-      "problemMatcher": ["$gcc"],
-      "group": "build"
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent" }
     },
     {
-      "label": "Compilar Aplicação",
-      "dependsOn": "Compilar Recurso",
-      "type": "process",
-      "command": "C:/msys64/mingw64/bin/gcc.exe",
+      "label": "3. Compilar Aplicação Principal (Linux)",
+      "type": "shell",
+      "command": "/usr/bin/x86_64-w64-mingw32-gcc",
       "args": [
         "-mwindows",
         "-I", "${workspaceFolder}/resource",
-        "-I", "C:/msys64/mingw64/include",
-        "-I", "${workspaceFolder}/import/kosmos",
-        "-g",
-        "-Wall",
-        "-D_WIN32_WINNT=0x0A00",
-        "-DWINVER=0x0A00",
-        "-DUNICODE",
-        "-D_UNICODE",
+        "-I", "${workspaceFolder}/tools/kosmos",
+        "-g", "-Wall",
+        "-D_WIN32_WINNT=0x0A00", "-DWINVER=0x0A00",
+        "-DUNICODE", "-D_UNICODE",
         "${workspaceFolder}/src/main.c",
-        "${workspaceFolder}/import/kosmos/kosmos.c",
+        "${workspaceFolder}/tools/kosmos/kosmos.c",
         "${workspaceFolder}/output/resource.o",
         "-o", "${workspaceFolder}/output/MeuApp.exe",
-        "-lshcore",
-        "-lcomctl32",
-        "-lgdi32",
-        "-luser32",
-        "-static-libgcc",
-        "-static-libstdc++",
-        "-Wl,--subsystem,windows",
-        "-municode"
+        "-lshcore", "-lcomctl32", "-lgdi32", "-luser32", "-lshlwapi",
+        "-static-libgcc", "-static-libstdc++",
+        "-Wl,--subsystem,windows", "-municode"
+      ],
+      "dependsOn": ["1. Compilar Recurso (Linux)"],
+      "group": "build",
+      "problemMatcher": ["$gcc"],
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "4. Aplicar Manifest (Wine)",
+      "type": "process", 
+      "command": "wine",
+      "args": [
+        "${workspaceFolder}/tools/msys/mt.exe",
+        "-nologo",
+        "-manifest", "Z:${workspaceFolder}/tools/kosmos/kosmos.exe.manifest",
+        "-outputresource:Z:${workspaceFolder}/output/MeuApp.exe;#1"
       ],
       "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PATH": "C:/msys64/mingw64/bin;${env:PATH}"
-        }
+        "env": { "WINEDEBUG": "-all" }
       },
+      "dependsOn": "3. Compilar Aplicação Principal (Linux)",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "5. Gerar AppImage (Linux)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/package_linux.sh"],
+      "dependsOn": "4. Aplicar Manifest (Wine)",
+      "group": "build",
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "Build All & Run (Linux)",
+      "dependsOn": ["5. Gerar AppImage (Linux)"],
+      "dependsOrder": "sequence",
       "group": {
         "kind": "build",
-        "isDefault": false
+        "isDefault": true
       },
-      "problemMatcher": ["$gcc"]
-    },
-    {
-      "label": "Aplicar Manifest",
+      
+      // MUDANÇA: Agora executa o AppImage gerado diretamente!
       "type": "process",
-      "command": "M:/Windows Kits/10/bin/10.0.26100.0/x64/mt.exe",
-      "args": [
-        "-nologo",
-        "-manifest",
-        "${workspaceFolder}/import/kosmos/kosmos.exe.manifest",
-        "-outputresource:${workspaceFolder}/output/MeuApp.exe;#1"
-      ],
-      "dependsOn": "Compilar Aplicação",
-      "problemMatcher": []
-    },
-    {
-      "label": "Build Completo",
-      "dependsOn": [
-        "Compilar Recurso",
-        "Compilar Aplicação",
-        "Aplicar Manifest"
-      ],
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "Executar Programa",
-      "type": "shell",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "start",
-        "\"MeuApp\"",
-        "/wait",
-        "${workspaceFolder}/output/MeuApp.exe"
-      ],
-      "dependsOn": "Build Completo",
-      "problemMatcher": [],
+      "command": "${workspaceFolder}/output/linux/KosmosApp-x86_64.AppImage",
+      "args": [],
+      
       "presentation": {
-        "reveal": "always",
-        "focus": false
-      }
-    },
-    {
-      "label": "Apenas Executar",
-      "type": "shell",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "start",
-        "\"MeuApp\"",
-        "${workspaceFolder}/output/MeuApp.exe"
-      ],
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "focus": false
+        "echo": false,
+        "reveal": "never", // Sem terminal preto/debug
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
       }
     }
   ]

@@ -1,29 +1,37 @@
 {
-  "configurations": [
-    {
-      "name": "Win32",
-      "includePath": [
-        "${workspaceFolder}/**",
-        "C:/msys64/mingw64/include"
-      ],
-      "defines": [
-        "_WIN32_WINNT=0x0A00",
-        "WINVER=0x0A00",
-        "UNICODE",
-        "_UNICODE"
-      ],
-      "compilerPath": "C:/msys64/mingw64/bin/gcc.exe",
-      "cStandard": "c17",
-      "cppStandard": "gnu++17",
-      "intelliSenseMode": "windows-gcc-x64",
-      "browse": {
-        "path": [
-          "C:/msys64/mingw64/lib",
-          "C:/msys64/mingw64/x86_64-w64-mingw32/lib"
-        ],
-        "limitSymbolsToIncludedHeaders": true
-      }
-    }
-  ],
-  "version": 4
+    "configurations": [
+        {
+            "name": "Linux-MinGW-w64",
+            "includePath": [
+                "${workspaceFolder}/**",
+                // Caminhos padrão do MinGW no Linux (Ubuntu/Debian/Arch)
+                "/usr/x86_64-w64-mingw32/include",
+                "/usr/share/mingw-w64/include",
+                // Seus includes do projeto
+                "${workspaceFolder}/tools/kosmos/**"
+            ],
+            "defines": [
+                "_WIN32_WINNT=0x0A00",
+                "WINVER=0x0A00",
+                "UNICODE",
+                "_UNICODE",
+                "__linux__", // Identifica que o host é Linux
+                "_WIN32"     // Identifica que o alvo é Windows (crucial para o IntelliSense não surtar com HWND)
+            ],
+            // O compilador cross-compile que você instalou com 'sudo apt install mingw-w64'
+            "compilerPath": "/usr/bin/x86_64-w64-mingw32-gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            // Modo Linux porque o VS Code está rodando no Linux, mas o compilador cuida dos tipos Windows
+            "intelliSenseMode": "linux-gcc-x64",
+            "browse": {
+                "path": [
+                    "/usr/x86_64-w64-mingw32/include",
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
 }

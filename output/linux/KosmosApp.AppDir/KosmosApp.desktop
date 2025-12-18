@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=KosmosApp
+Exec=AppRun
+Icon=KosmosApp
+Type=Application
+Categories=Development;
