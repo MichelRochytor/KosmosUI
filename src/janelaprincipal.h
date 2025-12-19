@@ -8,19 +8,22 @@
 #define ALTURA_MINIMA  500
 
 HBRUSH g_hBrushFundo; 
+
 KosmosWindow(JanelaPrincipal){
     switch (msg_param) {
         case WM_INITDIALOG:{
-            // 2. Aplicar FIX de renderização (WS_CLIPCHILDREN)
             LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-            SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_CLIPCHILDREN);
+            SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_THICKFRAME);
             g_hBrushFundo = CreateSolidBrush(RGB(24, 24, 24)); 
+
+            SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)g_hBrushFundo);
             AdicionarFonte();
             CarregarObjetos(hwnd);
             ColocarFontes();
             ApresentacaoPrincipal();
-            InvalidateRect(hwnd, NULL, TRUE);
-            UpdateWindow(hwnd);
+            DWORD classStyle = GetClassLongPtr(hwnd, GCL_STYLE);
+            classStyle &= ~(CS_HREDRAW | CS_VREDRAW);
+            SetClassLongPtr(hwnd, GCL_STYLE, classStyle);
             break;
         }
         return TRUE;
@@ -30,6 +33,15 @@ KosmosWindow(JanelaPrincipal){
             GetClientRect(hwnd, &rc);
             FillRect(hdc, &rc, g_hBrushFundo);
             return 1; // Retorna 1 = "Eu já pintei, não faça nada padrão"
+        }
+        case WM_WINDOWPOSCHANGING: {
+            WINDOWPOS* pPos = (WINDOWPOS*)lParam;
+            // Se estiver tentando mudar o tamanho (SWP_NOSIZE não está marcado)
+            if (!(pPos->flags & SWP_NOSIZE)) {
+                if (pPos->cx < LARGURA_MINIMA) pPos->cx = LARGURA_MINIMA;
+                if (pPos->cy < ALTURA_MINIMA) pPos->cy = ALTURA_MINIMA;
+            }
+            return TRUE; // Retorna TRUE para dizer "Eu tratei isso, use meus valores"
         }
         case WM_CTLCOLORBTN:{
             hdc = (HDC)wParam;
@@ -100,8 +112,13 @@ KosmosWindow(JanelaPrincipal){
             SetWindowPos(caixa_texto, HWND_BOTTOM, 270, 100, janela1 - 345, janela2 - 125, SWP_NOZORDER);
             SetWindowPos(salvar, NULL, 300 + janela1 * 0.165, 30, 75, 35, SWP_NOZORDER);
             SetWindowPos(list_registradores, HWND_BOTTOM, janela1 - 150, 25, janela1 - 150, janela2 - 25, SWP_NOZORDER);
-            InvalidateRect(hwnd, NULL, TRUE);
+            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE | RDW_ALLCHILDREN);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect(hdc, &rc, g_hBrushFundo);
+            InvalidateRect(hwnd, &rc, TRUE);
             UpdateWindow(hwnd);
+            return 0;
             break;
         }
         return TRUE;
@@ -109,9 +126,41 @@ KosmosWindow(JanelaPrincipal){
             tamanho = (MINMAXINFO*)lParam;
             tamanho->ptMinTrackSize.x = 1000;
             tamanho->ptMinTrackSize.y = 500;
+
+            HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi;
+            mi.cbSize = sizeof(mi);
+            if (GetMonitorInfo(hMonitor, &mi)) {
+                // Define o tamanho máximo como a área de trabalho disponível
+                tamanho->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
+                tamanho->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
+                tamanho->ptMaxTrackSize.x = tamanho->ptMaxSize.x;
+                tamanho->ptMaxTrackSize.y = tamanho->ptMaxSize.y;
+            }
+            
+            return TRUE;
             break;
         }
         return TRUE;
+        case WM_SIZING: {
+            RECT* pRect = (RECT*)lParam;
+            int w = pRect->right - pRect->left;
+            int h = pRect->bottom - pRect->top;
+
+            if (w < LARGURA_MINIMA) {
+                if (wParam == WMSZ_LEFT || wParam == WMSZ_TOPLEFT || wParam == WMSZ_BOTTOMLEFT)
+                    pRect->left = pRect->right - LARGURA_MINIMA;
+                else
+                    pRect->right = pRect->left + LARGURA_MINIMA;
+            }
+            if (h < ALTURA_MINIMA) {
+                if (wParam == WMSZ_TOP || wParam == WMSZ_TOPLEFT || wParam == WMSZ_TOPRIGHT)
+                    pRect->top = pRect->bottom - ALTURA_MINIMA;
+                else
+                    pRect->bottom = pRect->top + ALTURA_MINIMA;
+            }
+            return TRUE;
+        }
         case WM_COMMAND:{
             switch (LOWORD(wParam)) {
                 case ID_ABRIRPASTA:{
