@@ -61,42 +61,6 @@ cd MeuApp
 code .
 
 
-2. Exemplo: Hello World (src/main.c)
-
-#include "kosmos.h"
-#include "resource.h"
-
-// Função de Callback da Janela
-KosmosWindow(JanelaPrincipal) {
-    switch (msg) {
-        case WINDOW_INIT:
-            return TRUE;
-
-        case WM_COMMAND:
-            if (LOWORD(wParam) == IDOK) {
-                MessageBox(hDlg, L"Olá, Universo!", L"Kosmos", MB_OK);
-            }
-            return TRUE;
-
-        case WM_CLOSE:
-            EndKosmos(hDlg); // Fecha a aplicação corretamente
-            break;
-    }
-    return FALSE;
-}
-
-// Ponto de Entrada
-KosmosMain() {
-    // Inicializa controles modernos
-    InitCommonControlsEx(&(INITCOMMONCONTROLSEX){sizeof(INITCOMMONCONTROLSEX), ICC_STANDARD_CLASSES});
-
-    KWINDOW janela = KCreateWindow(hInst, IDD_DIALOG1, JanelaPrincipal);
-    ShowWindow(janela, 1);
-    LoopMsg(janela);
-    return 0;
-}
-
-
 3. Compilar e Rodar
 
 No VS Code, pressione Ctrl+Shift+B.
@@ -120,7 +84,6 @@ MeuApp/
 │   ├── kosmos/          # Código fonte do Framework (kosmos.c, kosmos.h)
 │   └── package_linux.sh # Script de geração do AppImage
 └── output/              # Onde os binários são gerados
-
 
 🐧 Suporte Linux (AppImage)
 
@@ -153,4 +116,4 @@ Abra um Pull Request.
 Este projeto está sob a licença MIT.
 Você é livre para usar, modificar e distribuir o Kosmos em projetos pessoais, acadêmicos ou comerciais.
 
-Copyright (c) 2025 [Seu Nome Aqui].
+Copyright (c) 2025 Michel Rochytor.
