@@ -52,7 +52,7 @@ echo "Extraindo Wine..."
 tar -xf "tools/wine-portable.tar.xz" -C "$APP_DIR/usr/" --strip-components=1
 check_error "Falha ao extrair o Wine."
 
-echo "[4/7] Criando AppRun Profissional (Visual Windows 11 + Integração Linux)..."
+echo "[4/7] Criando AppRun Dinâmico (Auto-DPI Baseado no Monitor do Usuário)..."
 
 cat > "$APP_DIR/AppRun" <<EOF
 #!/bin/bash
@@ -73,22 +73,57 @@ if [ ! -f "\$WINEPREFIX/configured" ]; then
     touch "\$WINEPREFIX/configured"
 fi
 
-# --- APLICAR TEMA WINDOWS 11 FLAT (SEMPRE) ---
-# CORREÇÃO: Voltamos Managed="Y" para integrar com a barra de tarefas do Linux
-echo "Aplicando tema moderno..."
+# --- DETECÇÃO DINÂMICA DE DPI DO MONITOR DO USUÁRIO ---
+# 1. Tenta pegar a escala do GNOME/Zorin (retorna 1, 2, etc.)
+LINUX_SCALE=\$(gsettings get org.gnome.desktop.interface scaling-factor 2>/dev/null | awk '{print \$2}')
+
+# 2. Se falhar ou for vazia, tenta calcular via xrdb (X11 DPI padrão)
+if [ -z "\$LINUX_SCALE" ] || [ "\$LINUX_SCALE" = "0" ]; then
+    X_DPI=\$(xrdb -query 2>/dev/null | grep dpi | awk '{print \$2}' | cut -d. -f1)
+    if [ -z "\$X_DPI" ]; then
+        X_DPI=130 # Fallback caso não encontre nada
+    fi
+else
+    # Converte escala do GNOME para DPI (Escala 1 = 96 DPI, Escala 2 = 192 DPI)
+    X_DPI=\$((LINUX_SCALE * 192))
+fi
+
+# 3. Ajuste fino para escalas fracionárias comuns (125% e 150%)
+# Se o Linux reportar resoluções grandes em telas médias, aplicamos correções baseadas no monitor real
+if [ "\$X_DPI" -eq 96 ]; then
+    # Checa se há indícios de escala fracionária ativa (comum no Ubuntu/Zorin)
+    TEXT_SCALE=\$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null)
+    if [ ! -z "\$TEXT_SCALE" ] && [ "\$TEXT_SCALE" != "1.0" ]; then
+        # Se o texto estiver aumentado em 1.25, usamos 120 DPI (125%)
+        if (( \$(echo "\$TEXT_SCALE == 1.25" | bc -l 2>/dev/null || echo 0) )); then X_DPI=120; fi
+        # Se o texto estiver aumentado em 1.5, usamos 144 DPI (150%)
+        if (( \$(echo "\$TEXT_SCALE == 1.5" | bc -l 2>/dev/null || echo 0) )); then X_DPI=144; fi
+    fi
+fi
+
+# 4. Converte o DPI final decimal para formato Hexadecimal aceito pelo Regedit do Wine
+DPI_HEX=\$(printf "%08x" \$X_DPI)
+echo "Monitor detectado: Aplicando \$X_DPI DPI dinamicamente (Hex: \$DPI_HEX)..."
+
+# --- APLICAR TEMA WINDOWS 11 FLAT + AUTO DPI ---
 cat <<REG > "\$WINEPREFIX/config.reg"
 REGEDIT4
 
 [HKEY_CURRENT_USER\Control Panel\Desktop]
-"LogPixels"=dword:00000078
+"LogPixels"=dword:\$DPI_HEX
 "FontSmoothing"="2"
 "FontSmoothingType"=dword:00000002
+"FontSmoothingOrientation"=dword:00000001
+"FontSmoothingGamma"=dword:000004b0
 "ForegroundLockTimeout"=dword:00000000
 
 [HKEY_CURRENT_USER\Software\Wine\X11 Driver]
 "Decorated"="Y"
 "Managed"="Y"
 "UseTakeFocus"="N"
+
+[HKEY_CURRENT_USER\Software\Wine\Fonts]
+"Antialias"="Y"
 
 [HKEY_CURRENT_USER\Control Panel\Colors]
 "ActiveBorder"="200 200 200"
@@ -131,7 +166,7 @@ REGEDIT4
 REG
 
 "\$HERE/usr/bin/regedit" /S "\$WINEPREFIX/config.reg"
-# --------------------------------------
+# ----------------------------------------------------
 
 "\$HERE/usr/bin/wine" "\$HERE/usr/bin/$APP_NAME.exe" "\$@"
 EOF
@@ -180,6 +215,6 @@ chmod +x "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
 rm -f "$OUTPUT_DIR/fs.squashfs"
 
 echo "======================================================"
-echo "SUCESSO! AppImage COM WINE 10.0 (Managed=Y) criado:"
+echo "SUCESSO! AppImage COM AUTO-DPI DINÂMICO criado:"
 echo "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
 echo "======================================================"

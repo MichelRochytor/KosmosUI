@@ -25,19 +25,54 @@ typedef struct {
 
 // Definições de tipos
 typedef INT_PTR (CALLBACK* KosmosWindowProc)(HWND, UINT, WPARAM, LPARAM);
-typedef HWND KWINDOW;
+
+typedef HWND KWidget;
+typedef UINT KEvent;
+typedef WPARAM Kid;
+typedef LPARAM KData;
+typedef INT_PTR KResult;
+
 typedef HFONT KFONT;
+
+#define kcontroller INT_PTR CALLBACK
+#define kGetWidget(janela, id) GetDlgItem(janela, id)
+#define kSetText(widget, texto)           SetWindowTextW(widget, texto)
+
+// Lê o texto de dentro de um Widget e guarda em uma variável string
+#define kGetText(widget, buffer, tamanho) GetWindowTextW(widget, buffer, tamanho)
 
 #define MsgWindow() switch (msg_param)
 // Macros
-#define KosmosWindow(nome) INT_PTR CALLBACK nome(HWND hwnd, UINT msg_param, WPARAM wParam, LPARAM lParam)
+#define KosmosWindow(nome) INT_PTR CALLBACK nome(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #define KosmosMain() int WINAPI wWinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPWSTR pCmdLine,int nCmdShow)
+
+#define kevents(msg) switch(msg)
+// --- EXTRAÇÃO DE DADOS (Substituindo HIWORD e LOWORD) ---
+// Retorna o ID do componente (Botão, Menu, Lista)
+#define kGetId(dado)     LOWORD(dado)
+// Retorna o tipo de ação (ex: clique duplo, mudança de seleção)
+#define kGetAction(dado) HIWORD(dado)
+
+#define KInit          WM_INITDIALOG
+#define KCommand       WM_COMMAND
+#define KResize        WM_SIZE
+#define KResizing      WM_SIZING
+#define KPreResize     WM_WINDOWPOSCHANGING
+#define KErase         WM_ERASEBKGND
+#define KPaint         WM_PAINT
+#define KClose         WM_CLOSE 
+#define KDestroy       WM_DESTROY
+
+#define KColors        WM_CTLCOLORBTN: \
+                       WM_CTLCOLORLISTBOX: \
+                       WM_CTLCOLORDLG: \
+                       WM_CTLCOLOREDIT: \
+                       WM_CTLCOLORSTATIC
+
 #define WINDOW_INIT 1
 #define KOSMOS_COMMAND 2
-#define KOSMOS_CLOSE WM_CLOSE
 
 // Protótipos
-int GetMsg(UINT msg_param);
 void ConfigurarDPI();
 KFONT CriarFontePersonalizada(const wchar_t* nomeFonte, int tamanho, int peso);
 HWND KCreateWindow(HINSTANCE instancia, int idDialogo, KosmosWindowProc procedimento);

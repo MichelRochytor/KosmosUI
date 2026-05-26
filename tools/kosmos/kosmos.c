@@ -10,6 +10,31 @@ typedef enum KOSMOS_DPI_AWARENESS {
 // e retorna um HRESULT. Isso serve para o compilador saber como chamar a função.
 typedef HRESULT (STDAPICALLTYPE *SetProcessDpiAwarenessProc)(KOSMOS_DPI_AWARENESS);
 
+void KosmosListFiles(LPCWSTR pasta, HWND list_arquivos, wchar_t path[260]) {  // Mudado para LPCWSTR
+    WIN32_FIND_DATAW FindFileData;  // Usar WIN32_FIND_DATAW
+    HANDLE hfind;
+
+    WCHAR formatar_arq[60] = L"   >  ";  // Mudado para WCHAR
+    wcscpy(path, pasta);
+    wcscat(path, L"\\*.*");
+    hfind = FindFirstFileW(path, &FindFileData);  // Usar FindFirstFileW
+
+    if (hfind != INVALID_HANDLE_VALUE) {
+        do {
+            const WCHAR* name = FindFileData.cFileName;  // Mudado para WCHAR
+            if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                const WCHAR* ext = wcsrchr(FindFileData.cFileName, L'.');  // Usar wcsrchr
+                if (ext != NULL && wcscmp(ext, L".s") == 0) {  // Usar wcscmp
+                    wcscat(formatar_arq, name);
+                    SendMessageW(list_arquivos, LB_ADDSTRING, 0, (LPARAM)formatar_arq);  // Usar SendMessageW
+                    wcscpy(formatar_arq, L"   >  ");
+                }
+            }
+        } while (FindNextFileW(hfind, &FindFileData) != 0);  // Usar FindNextFileW
+        FindClose(hfind);
+    }
+}
+
 void ConfigurarDPI() {
     // 2. TENTA CARREGAR A DLL (LoadLibrary)
     // Tenta abrir a "Shcore.dll" (presente no Windows 8.1, 10, 11).
@@ -57,26 +82,6 @@ KFONT CriarFontePersonalizada(const wchar_t* nomeFonte, int tamanho, int peso) {
         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, nomeFonte
     );
-}
-int GetMsg(UINT msg) {
-    switch (msg) {
-        case WM_INITDIALOG: {
-            // Inicialização do diálogo
-            return WINDOW_INIT; // Retorna o código de inicialização
-        }
-        return TRUE; // Indica que o foco foi definido
-        case WM_COMMAND:{
-            return KOSMOS_COMMAND;
-        }
-            
-        return TRUE;
-        case WM_CLOSE:{
-
-        }
-        
-        return TRUE;
-    }
-    return FALSE;
 }
 
 HWND KCreateWindow(HINSTANCE instancia, int idDialogo, KosmosWindowProc procedimento) {
@@ -129,79 +134,4 @@ void ConfigurarMenuOwnerDraw(HWND hwnd, HMENU menu, const EstiloVisual* estilo) 
             ConfigurarMenuOwnerDraw(hwnd, mii.hSubMenu, estilo);
         }
     }
-}
-
-INT_PTR TratarMensagemMenu(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, const EstiloVisual* estilo) {
-    switch (msg) {
-    case WM_MEASUREITEM: {
-        MEASUREITEMSTRUCT* mis = (MEASUREITEMSTRUCT*)lParam;
-        if (mis->CtlType == ODT_MENU) {
-            DadosItemMenu* pData = (DadosItemMenu*)mis->itemData;
-            if (pData) {
-                HDC hdc = GetDC(hwnd);
-                HFONT hFont = CriarFontePersonalizada(estilo->fonteNome, estilo->fonteTamanho, estilo->fontePeso);
-                HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-                SIZE size;
-                GetTextExtentPoint32(hdc, pData->texto, (int)wcslen(pData->texto), &size);
-                mis->itemWidth = size.cx + 40;
-                mis->itemHeight = size.cy + 10;
-
-                SelectObject(hdc, hOldFont);
-                DeleteObject(hFont);
-                ReleaseDC(hwnd, hdc);
-            }
-        }
-        return TRUE;
-    }
-
-    case WM_DRAWITEM: {
-        DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
-        if (dis->CtlType == ODT_MENU) {
-            DadosItemMenu* pData = (DadosItemMenu*)dis->itemData;
-            if (pData) {
-                COLORREF bgColor = (dis->itemState & ODS_SELECTED) ? estilo->corDestaque :
-                    ((dis->itemState & ODS_DISABLED) ? estilo->corFundo : estilo->corFundo);
-                COLORREF textColor = (dis->itemState & ODS_DISABLED) ? estilo->corDesativado : estilo->corTexto;
-
-                HBRUSH hBrush = CreateSolidBrush(bgColor);
-                FillRect(dis->hDC, &dis->rcItem, hBrush);
-                DeleteObject(hBrush);
-
-                HFONT hFont = CriarFontePersonalizada(estilo->fonteNome, estilo->fonteTamanho, estilo->fontePeso);
-                HFONT hOldFont = (HFONT)SelectObject(dis->hDC, hFont);
-
-                SetBkMode(dis->hDC, TRANSPARENT);
-                SetTextColor(dis->hDC, textColor);
-
-                RECT rcText = dis->rcItem;
-                rcText.left += 20;
-                DrawText(dis->hDC, pData->texto, -1, &rcText, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
-
-                SelectObject(dis->hDC, hOldFont);
-                DeleteObject(hFont);
-            }
-        }
-        return TRUE;
-    }
-
-    case WM_MENUCHAR:
-        return MNC_CLOSE << 16;
-
-    case WM_DESTROY: {
-        HMENU hMenu = GetMenu(hwnd);
-        if (hMenu) {
-            int count = GetMenuItemCount(hMenu);
-            for (int i = 0; i < count; i++) {
-                MENUITEMINFO mii = { sizeof(MENUITEMINFO) };
-                mii.fMask = MIIM_DATA;
-                if (GetMenuItemInfo(hMenu, i, TRUE, &mii)) {
-                    free((void*)mii.dwItemData);
-                }
-            }
-        }
-        break;
-    }
-    }
-    return FALSE;
 }
