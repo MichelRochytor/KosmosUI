@@ -6,6 +6,7 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <mmsystem.h>
+#include <wingdi.h>
 
 // Estruturas
 typedef struct {
@@ -36,10 +37,6 @@ typedef HFONT KFONT;
 
 #define kcontroller INT_PTR CALLBACK
 #define kGetWidget(janela, id) GetDlgItem(janela, id)
-#define kSetText(widget, texto)           SetWindowTextW(widget, texto)
-
-// Lê o texto de dentro de um Widget e guarda em uma variável string
-#define kGetText(widget, buffer, tamanho) GetWindowTextW(widget, buffer, tamanho)
 
 #define MsgWindow() switch (msg_param)
 // Macros
@@ -72,7 +69,25 @@ typedef HFONT KFONT;
 #define WINDOW_INIT 1
 #define KOSMOS_COMMAND 2
 
+// kosmos.h
+
+// Altera o título principal (o texto grande em negrito) do Command Link
+void kCommandLinkSetTitle(KWidget widget, const WCHAR* titulo);
+
+// Altera a nota secundária (o texto explicativo menor de baixo) do Command Link
+void kCommandLinkSetNote(KWidget widget, const WCHAR* nota);
+
 // Protótipos
+void kSetWidgetFont(KWidget widget, const WCHAR* fontName, int size, BOOL bBold, BOOL bItalic, BOOL bUnderline);
+BOOL KCustomFont(const WCHAR* fontPath);
+int kGetText(HWND widget, LPWSTR buffer, int tamanho);
+WINBOOL kSetText(HWND widget, LPCWSTR texto);
+
+void kComboAdd(KWidget combo, const WCHAR* texto);
+void kComboClear(KWidget combo);
+int kComboGetIndex(KWidget combo);
+void kComboGetText(KWidget combo, WCHAR* buffer);
+
 void ConfigurarDPI();
 KFONT CriarFontePersonalizada(const wchar_t* nomeFonte, int tamanho, int peso);
 HWND KCreateWindow(HINSTANCE instancia, int idDialogo, KosmosWindowProc procedimento);

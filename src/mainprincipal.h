@@ -1,14 +1,26 @@
 #include "kosmos.h"
 #include "resource.h"
 
-KWidget texto;
-KWidget digtar;
+KWidget texto, digtar, confirmar, combobox;
+KWidget commandlink;
 
 kcontroller mainPrincipal(KWidget janela, KEvent evento, Kid id, KData data){
     switch (evento){
         case KInit: 
             texto = kGetWidget(janela, TEXTO);
             digtar = kGetWidget(janela, DIGTAR);
+            confirmar = kGetWidget(janela, CONFIRMAR);
+            combobox = kGetWidget(janela, COMBOFELIZ);
+            commandlink = kGetWidget(janela, COMMAND1);
+
+            kComboClear(combobox);
+            kComboAdd(combobox, L"Opção 1");
+            kComboAdd(combobox, L"Opção 2");
+
+            kCommandLinkSetTitle(commandlink, L"Título do Command Link");
+            kCommandLinkSetNote(commandlink, L"Nota do Command Link");
+
+            kSetWidgetFont(texto, L"Audiowide", 30, TRUE, FALSE, FALSE);
             return 1;
         break;
         

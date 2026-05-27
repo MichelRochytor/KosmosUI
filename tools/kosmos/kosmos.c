@@ -10,6 +10,14 @@ typedef enum KOSMOS_DPI_AWARENESS {
 // e retorna um HRESULT. Isso serve para o compilador saber como chamar a função.
 typedef HRESULT (STDAPICALLTYPE *SetProcessDpiAwarenessProc)(KOSMOS_DPI_AWARENESS);
 
+WINBOOL kSetText(HWND widget, LPCWSTR texto) {
+    return SetWindowTextW(widget, texto);
+}
+
+int kGetText(HWND widget, LPWSTR buffer, int tamanho) {
+    return GetWindowTextW(widget, buffer, tamanho);
+}
+
 void KosmosListFiles(LPCWSTR pasta, HWND list_arquivos, wchar_t path[260]) {  // Mudado para LPCWSTR
     WIN32_FIND_DATAW FindFileData;  // Usar WIN32_FIND_DATAW
     HANDLE hfind;
@@ -75,6 +83,78 @@ void ConfigurarDPI() {
         }
     }
 }
+
+// Adicione no kosmos.h / kosmos.c
+void kSetWidgetFont(KWidget widget, const WCHAR* fontName, int size, BOOL bBold, BOOL bItalic, BOOL bUnderline) {
+    
+    // Define o peso da fonte baseado no parâmetro bBold
+    int fontWeight = bBold ? FW_BOLD : FW_NORMAL;
+
+    HFONT hFont = CreateFontW(
+        size,                   // Altura (Tamanho)
+        0, 0, 0, 
+        fontWeight,             // Peso da fonte (Negrito ou Normal)
+        bItalic,                // Itálico (TRUE/FALSE)
+        bUnderline,             // Sublinhado (TRUE/FALSE)
+        FALSE,                  // Riscado (Strikeout)
+        DEFAULT_CHARSET, 
+        OUT_DEFAULT_PRECIS, 
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,      // Garante que a fonte fique lisinha e sem pixels estourados
+        DEFAULT_PITCH | FF_DONTCARE, 
+        fontName                // Nome da fonte (Ex: L"Audiowide")
+    );
+    
+    if (hFont != NULL) {
+        SendMessageW(widget, WM_SETFONT, (WPARAM)hFont, TRUE);
+    }
+}
+
+void kComboAdd(KWidget combo, const WCHAR* texto) {
+    SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)texto);
+}
+
+void kComboClear(KWidget combo) {
+    SendMessageW(combo, CB_RESETCONTENT, 0, 0);
+}
+
+int kComboGetIndex(KWidget combo) {
+    return (int)SendMessageW(combo, CB_GETCURSEL, 0, 0);
+}
+
+void kCommandLinkSetTitle(KWidget widget, const WCHAR* titulo) {
+    if (widget != NULL) {
+        SetWindowTextW(widget, titulo);
+    }
+}
+
+void kCommandLinkSetNote(KWidget widget, const WCHAR* nota) {
+    if (widget != NULL) {
+        SendMessageW(widget, BCM_SETNOTE, 0, (LPARAM)nota);
+    }
+}
+
+void kComboGetText(KWidget combo, WCHAR* buffer) {
+    int index = kComboGetIndex(combo);
+    if (index != CB_ERR) {
+        SendMessageW(combo, CB_GETLBTEXT, (WPARAM)index, (LPARAM)buffer);
+    } else {
+        buffer[0] = L'\0'; // Retorna string vazia se não houver seleção
+    }
+}
+
+BOOL KCustomFont(const WCHAR* fontPath) {
+    // Carrega a fonte de forma privada para o processo atual
+    int result = AddFontResourceExW(fontPath, FR_PRIVATE, NULL);
+    
+    if (result > 0) {
+        // Avisa todas as janelas do sistema que uma nova fonte está disponível
+        PostMessageW(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 KFONT CriarFontePersonalizada(const wchar_t* nomeFonte, int tamanho, int peso) {
     return CreateFontW(
         -MulDiv(tamanho, GetDpiForSystem(), 96), 0, 0, 0, peso,
