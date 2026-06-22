@@ -1,8 +1,17 @@
 #!/bin/bash
+# tools/package_linux.sh
 
-# ================= CONFIGURAÇÃO =================
-APP_NAME="KosmosApp"
-EXE_PATH="output/MeuApp.exe"
+# ================= CONFIGURAÇÃO DINÂMICA (SDK KOSMOS) =================
+PROJETO_NOME=$1
+
+# Fallback caso o script seja chamado isoladamente
+if [ -z "$PROJETO_NOME" ]; then
+    echo "⚠️  Aviso: Nome do projeto não foi passado. Usando 'KosmosApp' como fallback."
+    PROJETO_NOME="KosmosApp"
+fi
+
+APP_NAME="$PROJETO_NOME"
+EXE_PATH="output/${PROJETO_NOME}.exe"
 ICON_PATH="resource/icon.png"
 OUTPUT_DIR="output/linux"
 APP_DIR="$OUTPUT_DIR/$APP_NAME.AppDir"
@@ -12,7 +21,7 @@ WINE_URL="https://github.com/Kron4ek/Wine-Builds/releases/download/10.0/wine-10.
 
 # Runtime "Continuous"
 RUNTIME_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64"
-# ================================================
+# ======================================================================
 
 # Função para verificar erros
 check_error() {
@@ -23,32 +32,42 @@ check_error() {
 }
 
 echo "[1/7] Limpando build anterior..."
-rm -rf "$OUTPUT_DIR"
+# Remove apenas o AppDir específico para evitar concorrência em builds concorrentes
+rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/usr/bin"
 mkdir -p "$APP_DIR/usr/lib"
 
-echo "[2/7] Copiando executável Windows..."
+echo "[2/7] Copiando executável Windows do projeto ($EXE_PATH)..."
 if [ ! -f "$EXE_PATH" ]; then
-    echo "ERRO: output/MeuApp.exe não encontrado!"
+    echo "ERRO: Ficheiro $EXE_PATH não encontrado! Execute a compilação primeiro."
     exit 1
 fi
 cp "$EXE_PATH" "$APP_DIR/usr/bin/$APP_NAME.exe"
 
-# Copia ícone
+# Copia os assets adicionais e fontes do projeto (como Audiowide.ttf e imagens de teste)
+if [ -d "./resource" ]; then
+    cp -r ./resource "$APP_DIR/usr/bin/"
+fi
+
+# Copia ícone do pacote
 if [ -f "$ICON_PATH" ]; then
     cp "$ICON_PATH" "$APP_DIR/$APP_NAME.png"
 else
+    # Fallback caso não possua ícone customizado
     wget -q https://upload.wikimedia.org/wikipedia/commons/8/83/Circle-icons-dev.svg -O "$APP_DIR/$APP_NAME.svg"
 fi
 
-echo "[3/7] Verificando Wine-Staging 10.0 Portátil..."
+# Garante que a pasta tools/ local existe para armazenar os downloads pesados e reutilizá-los
+mkdir -p tools
+
+echo "[3/7] Verificando Wine-Staging 10.0 Portátil em tools/..."
 if [ ! -f "tools/wine-portable.tar.xz" ] || [ ! -s "tools/wine-portable.tar.xz" ]; then
-    echo "Baixando Wine 10.0..."
+    echo "Baixando Wine 10.0 (Isso pode demorar um pouco)..."
     wget -q --show-progress "$WINE_URL" -O "tools/wine-portable.tar.xz"
     check_error "Falha ao baixar o Wine."
 fi
 
-echo "Extraindo Wine..."
+echo "Extraindo Wine para dentro do pacote..."
 tar -xf "tools/wine-portable.tar.xz" -C "$APP_DIR/usr/" --strip-components=1
 check_error "Falha ao extrair o Wine."
 
@@ -60,50 +79,41 @@ cat > "$APP_DIR/AppRun" <<EOF
 HERE="\$(dirname "\$(readlink -f "\${0}")")"
 export PATH="\$HERE/usr/bin:\$PATH"
 export LD_LIBRARY_PATH="\$HERE/usr/lib:\$HERE/usr/lib64:\$LD_LIBRARY_PATH"
-export WINEPREFIX="\$HOME/.wine_kosmos_pro"
+export WINEPREFIX="\$HOME/.wine_kosmos_${PROJETO_NOME,,}"
 mkdir -p "\$WINEPREFIX"
 
 export WINEDEBUG=-all
 export WINEARCH=win64
 
-# Inicialização pesada (apenas na primeira vez)
+# Inicialização pesada (apenas na primeira vez que o usuário roda o app)
 if [ ! -f "\$WINEPREFIX/configured" ]; then
-    echo "Inicializando prefixo Wine..."
+    echo "Inicializando prefixo Wine isolado para $PROJETO_NOME..."
     "\$HERE/usr/bin/wineboot" -u
     touch "\$WINEPREFIX/configured"
 fi
 
 # --- DETECÇÃO DINÂMICA DE DPI DO MONITOR DO USUÁRIO ---
-# 1. Tenta pegar a escala do GNOME/Zorin (retorna 1, 2, etc.)
 LINUX_SCALE=\$(gsettings get org.gnome.desktop.interface scaling-factor 2>/dev/null | awk '{print \$2}')
 
-# 2. Se falhar ou for vazia, tenta calcular via xrdb (X11 DPI padrão)
 if [ -z "\$LINUX_SCALE" ] || [ "\$LINUX_SCALE" = "0" ]; then
     X_DPI=\$(xrdb -query 2>/dev/null | grep dpi | awk '{print \$2}' | cut -d. -f1)
     if [ -z "\$X_DPI" ]; then
-        X_DPI=130 # Fallback caso não encontre nada
+        X_DPI=130 
     fi
 else
-    # Converte escala do GNOME para DPI (Escala 1 = 96 DPI, Escala 2 = 192 DPI)
     X_DPI=\$((LINUX_SCALE * 192))
 fi
 
-# 3. Ajuste fino para escalas fracionárias comuns (125% e 150%)
-# Se o Linux reportar resoluções grandes em telas médias, aplicamos correções baseadas no monitor real
 if [ "\$X_DPI" -eq 96 ]; then
-    # Checa se há indícios de escala fracionária ativa (comum no Ubuntu/Zorin)
     TEXT_SCALE=\$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null)
     if [ ! -z "\$TEXT_SCALE" ] && [ "\$TEXT_SCALE" != "1.0" ]; then
-        # Se o texto estiver aumentado em 1.25, usamos 120 DPI (125%)
         if (( \$(echo "\$TEXT_SCALE == 1.25" | bc -l 2>/dev/null || echo 0) )); then X_DPI=120; fi
-        # Se o texto estiver aumentado em 1.5, usamos 144 DPI (150%)
         if (( \$(echo "\$TEXT_SCALE == 1.5" | bc -l 2>/dev/null || echo 0) )); then X_DPI=144; fi
     fi
 fi
 
-# 4. Converte o DPI final decimal para formato Hexadecimal aceito pelo Regedit do Wine
 DPI_HEX=\$(printf "%08x" \$X_DPI)
-echo "Monitor detectado: Aplicando \$X_DPI DPI dinamicamente (Hex: \$DPI_HEX)..."
+echo "[KOSMOS] Monitor detectado: Aplicando \$X_DPI DPI dinamicamente (Hex: \$DPI_HEX)..."
 
 # --- APLICAR TEMA WINDOWS 11 FLAT + AUTO DPI ---
 cat <<REG > "\$WINEPREFIX/config.reg"
@@ -168,12 +178,14 @@ REG
 "\$HERE/usr/bin/regedit" /S "\$WINEPREFIX/config.reg"
 # ----------------------------------------------------
 
-"\$HERE/usr/bin/wine" "\$HERE/usr/bin/$APP_NAME.exe" "\$@"
+# Executa o executável passando também os argumentos extras passados ao AppImage (\$@)
+cd "\$HERE/usr/bin"
+exec "\$HERE/usr/bin/wine" "\$HERE/usr/bin/$APP_NAME.exe" "\$@"
 EOF
 
 chmod +x "$APP_DIR/AppRun"
 
-# 5. Criar .desktop
+# 5. Criar arquivo de metadados .desktop interno
 cat > "$APP_DIR/$APP_NAME.desktop" <<EOF
 [Desktop Entry]
 Name=$APP_NAME
@@ -183,9 +195,9 @@ Type=Application
 Categories=Development;
 EOF
 
-echo "[6/7] Verificando Runtime do AppImage..."
+echo "[6/7] Verificando Runtime do AppImage em tools/..."
 if [ ! -f "tools/runtime-x86_64" ] || [ ! -s "tools/runtime-x86_64" ]; then
-    echo "Baixando Runtime..."
+    echo "Baixando Runtime do AppImageKit..."
     rm -f "tools/runtime-x86_64"
     wget --no-check-certificate --show-progress -L "$RUNTIME_URL" -O "tools/runtime-x86_64"
     if [ $? -ne 0 ]; then
@@ -199,22 +211,27 @@ if [ ! -f "tools/runtime-x86_64" ] || [ ! -s "tools/runtime-x86_64" ]; then
 fi
 chmod +x "tools/runtime-x86_64"
 
-echo "[7/7] Empacotando AppImage..."
+echo "[7/7] Empacotando árvore completa SquashFS..."
 if ! command -v mksquashfs &> /dev/null; then
-    echo "ERRO: mksquashfs não encontrado. Instale: sudo apt install squashfs-tools"
+    echo "ERRO: mksquashfs não encontrado. Execute: sudo apt install squashfs-tools"
     exit 1
 fi
 
-mksquashfs "$APP_DIR" "$OUTPUT_DIR/fs.squashfs" -root-owned -noappend -comp xz -b 1M
-check_error "Falha ao criar SquashFS."
+mkdir -p "$OUTPUT_DIR"
+rm -f "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
 
+mksquashfs "$APP_DIR" "$OUTPUT_DIR/fs.squashfs" -root-owned -noappend -comp xz -b 1M
+check_error "Falha ao criar SquashFS bruto."
+
+# Mescla o runtime binário com o sistema de arquivos SquashFS gerado
 cat "tools/runtime-x86_64" "$OUTPUT_DIR/fs.squashfs" > "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
-check_error "Falha na fusão do AppImage."
+check_error "Falha na fusão final do AppImage executável."
 
 chmod +x "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
 rm -f "$OUTPUT_DIR/fs.squashfs"
+rm -rf "$APP_DIR" # Limpa a pasta AppDir para economizar espaço em disco
 
 echo "======================================================"
-echo "SUCESSO! AppImage COM AUTO-DPI DINÂMICO criado:"
-echo "$OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
+echo " ✅ SUCESSO! AppImage COM AUTO-DPI DINÂMICO CRIADO:"
+echo " 📍 Localização: $OUTPUT_DIR/$APP_NAME-x86_64.AppImage"
 echo "======================================================"
