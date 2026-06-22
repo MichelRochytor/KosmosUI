@@ -31,7 +31,7 @@
         "${workspaceFolder}/tools/kosmos/kosmos.c",
         "${workspaceFolder}/output/resource.o",
         "-o", "${workspaceFolder}/output/MeuApp.exe",
-        "-lshcore", "-lcomctl32", "-lgdi32", "-luser32", "-lshlwapi",
+        "-lshcore", "-lcomctl32", "-lgdi32", "-luser32", "-lshlwapi","-lgdiplus",
         "-static-libgcc", "-static-libstdc++",
         "-Wl,--subsystem,windows", "-municode"
       ],

@@ -2,10 +2,10 @@
 #include "mainprincipal.h"
 #include "resource.h"
 
-KosmosMain(){
-    KCustomFont(L"Resource\\Audiowide.ttf");
-    KWidget janelaprincipal = KCreateWindow(hInst, JANELA, mainPrincipal);
+int KosmosMain(){
+    KCustomFont("Resource\\Audiowide.ttf");
+    KWidget janelaprincipal = KCreateWindow(JANELA, mainPrincipal);
     ShowWindow(janelaprincipal, 1);
-    LoopMsg(janelaprincipal);
+    LoopMsg();
     return 0;
 }
