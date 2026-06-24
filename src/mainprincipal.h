@@ -70,7 +70,7 @@ kcontroller mainPrincipal(KWidget janela, KEvent evento, Kid id, KData data){
             kComboAdd(w.combobox, "Opção 2"); 
 
             kRichAppendText(w.richedit, "Bem-vindo ao Kosmos UI!", RGB(0, 128, 255));
-            kPictureSetImageFile(w.picture, "resource/pao.jpg");
+            kPictureSetImageFile(w.picture, "resource\\pao.jpg");
             
             kCommandLinkSetTitle(w.commandlink, "Título do Command Link");
             kCommandLinkSetNote(w.commandlink, "Nota do Command Link");
