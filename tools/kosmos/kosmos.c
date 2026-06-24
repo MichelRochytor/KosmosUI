@@ -207,7 +207,13 @@ HINSTANCE hInst;
 int WINAPI wWinMain(HINSTANCE hInst1, HINSTANCE hPrevInst, LPWSTR pCmdLine, int nCmdShow) 
 {
     hInst = hInst1;
-    LoadLibraryW(L"Msftedit.dll");
+    LoadLibraryW(L"riched32.dll"); // RichEdit 1.0 (Versão antiga padrão do Windows)
+    LoadLibraryW(L"riched20.dll"); // RichEdit 2.0 e 3.0 (Altamente estável e amplamente utilizada)
+    LoadLibraryW(L"msftedit.dll"); // RichEdit 4.1+ (Moderna nativa do Windows 10/11)
+    
+    // Runtimes Alternativos (Trazidos frequentemente pelo Microsoft Office/SDKs)
+    LoadLibraryW(L"riched64.dll"); // Variação de 64-bit em ambientes específicos
+    LoadLibraryW(L"msftedit64.dll");// Variação moderna de 64-bit
     return KosmosMain();
 }
 
