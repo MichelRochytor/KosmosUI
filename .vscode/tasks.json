@@ -41,28 +41,12 @@
       "presentation": { "reveal": "silent" }
     },
     {
-      "label": "4. Aplicar Manifest (Wine)",
-      "type": "process", 
-      "command": "wine",
-      "args": [
-        "${workspaceFolder}/tools/msys/mt.exe",
-        "-nologo",
-        "-manifest", "Z:${workspaceFolder}/tools/kosmos/kosmos.exe.manifest",
-        "-outputresource:Z:${workspaceFolder}/output/MeuApp.exe;#1"
-      ],
-      "options": {
-        "env": { "WINEDEBUG": "-all" }
-      },
-      "dependsOn": "3. Compilar Aplicação Principal (Linux)",
-      "problemMatcher": [],
-      "presentation": { "reveal": "silent" }
-    },
-    {
       "label": "5. Gerar AppImage (Linux)",
       "type": "shell",
       "command": "bash",
       "args": ["${workspaceFolder}/tools/package_linux.sh"],
-      "dependsOn": "4. Aplicar Manifest (Wine)",
+      // 🌟 MUDANÇA: Agora depende direto do build do GCC, pulando o mt.exe!
+      "dependsOn": "3. Compilar Aplicação Principal (Linux)",
       "group": "build",
       "presentation": { "reveal": "silent" }
     },
@@ -74,15 +58,12 @@
         "kind": "build",
         "isDefault": true
       },
-      
-      // MUDANÇA: Agora executa o AppImage gerado diretamente!
       "type": "process",
       "command": "${workspaceFolder}/output/linux/KosmosApp-x86_64.AppImage",
       "args": [],
-      
       "presentation": {
         "echo": false,
-        "reveal": "never", // Sem terminal preto/debug
+        "reveal": "never",
         "focus": false,
         "panel": "shared",
         "showReuseMessage": false,
